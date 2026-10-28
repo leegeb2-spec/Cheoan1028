@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>몽글몽글 카페 메뉴 뽑기방</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts: Gaegu & Noto Sans KR -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Noto+Sans+KR:wght@400;600;700;900&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        pastelPink: '#FFB7C5',
+                        pastelPinkLight: '#FFE4E8',
+                        pastelPurple: '#D8B4F8',
+                        pastelYellow: '#FFF1AC',
+                        pastelMint: '#BFFCC6',
+                        pastelBlue: '#C4E0E5',
+                        machineBg: '#FFFDF9',
+                    },
+                    fontFamily: {
+                        gaegu: ['Gaegu', 'cursive'],
+                        sans: ['Noto Sans KR', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background: linear-gradient(135deg, #FFE4E8 0%, #E8D7F5 50%, #D4F0F0 100%);
+            touch-action: manipulation;
+        }
+
+        .font-gaegu {
+            font-family: 'Gaegu', cursive;
+        }
+
+        /* Glassmorphism utility */
+        .glass-panel {
+            background: rgba(255, 255, 255, 0.75);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 2px solid rgba(255, 255, 255, 0.8);
+        }
+
+        .claw-shadow {
+            box-shadow: 0 10px 25px -5px rgba(232, 180, 204, 0.5);
+        }
+
+        /* Custom scrollbar for menu list */
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: #F3E8FF;
+            border-radius: 10px;
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #D8B4F8;
+            border-radius: 10px;
+        }
+
+        /* Pulse animation for grab button */
+        @keyframes gentle-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.04); }
+        }
+        .animate-pulse-slow {
+            animation: gentle-pulse 2s infinite ease-in-out;
+        }
+
+        /* Capsule Bounce */
+        @keyframes openCapsule {
+            0% { transform: scale(0.3) rotate(-10deg); opacity: 0; }
+            50% { transform: scale(1.1) rotate(5deg); opacity: 1; }
+            100% { transform: scale(1) rotate(0deg); opacity: 1; }
+        }
+        .animate-pop-in {
+            animation: openCapsule 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-2 sm:p-4 text-slate-700 select-none">
+
+    <!-- Smartphone Viewport Container -->
+    <div class="w-full max-w-sm h-[100dvh] max-h-[850px] bg-white rounded-[40px] shadow-2xl border-[8px] border-white overflow-hidden flex flex-col relative ring-1 ring-black/5">
+        
+        <!-- Top Status Bar & Header -->
+        <header class="bg-gradient-to-r from-pastelPinkLight via-white to-pastelPinkLight p-3 px-4 flex items-center justify-between border-b border-pink-100 shrink-0">
+            <div class="flex items-center space-x-2">
+                <span class="text-xl">🧋</span>
+                <h1 class="font-bold text-slate-800 text-lg tracking-tight font-gaegu text-2xl leading-none">몽글 카페 뽑기방</h1>
+            </div>
+            <div class="flex items-center space-x-1.5">
+                <!-- Sound Toggle Button -->
+                <button id="soundToggleBtn" onclick="toggleSound()" class="w-8 h-8 rounded-full bg-pink-50 hover:bg-pink-100 text-pink-500 flex items-center justify-center transition active:scale-95" title="음향 ON/OFF">
+                    <i id="soundIcon" class="fas fa-volume-up text-sm"></i>
+                </button>
+                <!-- Menu Manager Button -->
+                <button onclick="openMenuModal()" class="w-8 h-8 rounded-full bg-purple-50 hover:bg-purple-100 text-purple-600 flex items-center justify-center transition active:scale-95 relative" title="메뉴 관리">
+                    <i class="fas fa-list-ul text-sm"></i>
+                    <span id="menuBadgeCount" class="absolute -top-1 -right-1 bg-pink-500 text-white text-[10px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center border border-white">0</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- Claw Machine Canvas Container -->
+        <div class="relative flex-1 bg-gradient-to-b from-sky-50 via-purple-50/50 to-pink-50 overflow-hidden flex flex-col justify-between">
+            
+            <!-- Notice Banner overlay when idle -->
+            <div id="machineBanner" class="absolute top-2 left-0 right-0 z-10 flex justify-center pointer-events-none transition-all duration-300">
+                <div class="bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full text-xs font-semibold text-purple-700 shadow-sm border border-purple-100 flex items-center space-x-1">
+                    <span class="animate-bounce">✨</span>
+                    <span id="bannerText">오늘 뭐 마시지? 집게 버튼을 눌러보세요!</span>
+                </div>
+            </div>
+
+            <!-- Arcade Cabinet Graphic Framing & Canvas -->
+            <div class="relative w-full h-full flex-1">
+                <canvas id="clawCanvas" class="w-full h-full block"></canvas>
+            </div>
+
+            <!-- Machine Bottom Chute Display Area -->
+            <div class="h-14 bg-gradient-to-r from-pink-200 via-purple-200 to-pink-200 border-t-2 border-white flex items-center justify-between px-4 shrink-0 shadow-inner">
+                <div class="flex items-center space-x-2">
+                    <!-- Delivery Exit Slot Graphic -->
+                    <div class="w-16 h-8 bg-slate-800/80 rounded-t-lg border-t-2 border-x-2 border-slate-600 flex items-center justify-center relative overflow-hidden">
+                        <div class="w-12 h-1 bg-slate-500 rounded-full mb-4"></div>
+                        <span class="absolute text-[9px] text-pink-300 font-bold bottom-0.5">EXIT</span>
+                    </div>
+                    <span class="text-xs text-slate-600 font-medium font-gaegu text-base">캡슐 배출구</span>
+                </div>
+                
+                <!-- LED Decor Lights -->
+                <div class="flex space-x-1.5">
+                    <div class="w-2.5 h-2.5 rounded-full bg-pink-400 animate-pulse"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-yellow-300 animate-pulse delay-100"></div>
+                    <div class="w-2.5 h-2.5 rounded-full bg-emerald-300 animate-pulse delay-200"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Panel Footer -->
+        <footer class="bg-white p-4 border-t border-slate-100 shrink-0 flex flex-col gap-2">
+            <!-- Big Arcade Grab Button -->
+            <button id="grabBtn" onclick="startGrabbing()" class="w-full py-3.5 bg-gradient-to-r from-pink-400 via-rose-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-black text-lg tracking-wide rounded-2xl shadow-lg shadow-pink-300/60 active:scale-98 transition-all flex items-center justify-center space-x-2 border-b-4 border-pink-600 animate-pulse-slow disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fas fa-hand-holding-heart text-xl"></i>
+                <span id="grabBtnText" class="font-bold">메뉴 뽑기 시작!</span>
+            </button>
+
+            <!-- Secondary Actions Row -->
+            <div class="grid grid-cols-2 gap-2">
+                <button onclick="openMenuModal()" class="py-2 px-3 bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 transition">
+                    <i class="fas fa-plus-circle text-purple-500"></i>
+                    <span>메뉴 추가/수정</span>
+                </button>
+                <button onclick="quickPickRandom()" class="py-2 px-3 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-bold rounded-xl flex items-center justify-center space-x-1 transition">
+                    <i class="fas fa-bolt text-amber-500"></i>
+                    <span>빛의 속도 빠른픽</span>
+                </button>
+            </div>
+        </footer>
+
+        <!-- RESULT POPUP MODAL -->
+        <div id="resultModal" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-3xl w-full max-w-xs p-5 shadow-2xl text-center border-4 border-pink-200 relative overflow-hidden animate-pop-in">
+                
+                <!-- Confetti Canvas Background Layer -->
+                <div class="absolute -top-12 -left-12 w-32 h-32 bg-pink-100/50 rounded-full blur-2xl"></div>
+                <div class="absolute -bottom-12 -right-12 w-32 h-32 bg-purple-100/50 rounded-full blur-2xl"></div>
+
+                <!-- Capsule Header Icon -->
+                <div class="relative mb-3 inline-block">
+                    <div id="resultCapsuleBg" class="w-20 h-20 rounded-full bg-gradient-to-tr from-pink-300 to-purple-300 flex items-center justify-center text-4xl shadow-md border-4 border-white mx-auto transform hover:rotate-12 transition-transform">
+                        <span id="resultEmoji">☕</span>
+                    </div>
+                    <span class="absolute -bottom-1 -right-1 bg-yellow-400 text-slate-900 text-xs font-black px-2 py-0.5 rounded-full border border-white shadow">
+                        PICKED!
+                    </span>
+                </div>
+
+                <div class="text-xs font-bold text-pink-500 tracking-wider uppercase mb-1">오늘의 카페 메뉴 추천</div>
+                <h2 id="resultMenuTitle" class="text-2xl font-black text-slate-800 mb-2 leading-tight">아이스 아메리카노</h2>
+
+                <!-- Funny 1-line Comment Box -->
+                <div class="bg-slate-50 border border-slate-200/80 rounded-2xl p-3 my-3 relative text-left">
+                    <i class="fas fa-quote-left text-pink-300 text-sm absolute top-2 left-2.5"></i>
+                    <p id="resultComment" class="text-xs sm:text-sm font-semibold text-slate-700 pl-4 pr-1 pt-1 leading-relaxed italic">
+                        "오늘의 정신 번쩍 카페인! 한 입 먹으면 피로가 싹 사라져요 ✨"
+                    </p>
+                </div>
+
+                <!-- Action Buttons in Result -->
+                <div class="space-y-2 pt-2">
+                    <button onclick="requestAiComment()" id="aiBtn" class="w-full py-2 bg-gradient-to-r from-purple-100 to-pink-100 hover:from-purple-200 hover:to-pink-200 text-purple-700 font-bold text-xs rounded-xl flex items-center justify-center space-x-1.5 transition border border-purple-200/60">
+                        <i class="fas fa-magic text-purple-500"></i>
+                        <span>AI 한 줄평 새로 요청하기</span>
+                    </button>
+                    <button onclick="closeResultModal()" class="w-full py-3 bg-gradient-to-r from-pink-400 to-purple-400 hover:from-pink-500 hover:to-purple-500 text-white font-extrabold text-sm rounded-xl shadow-md active:scale-95 transition">
+                        확인! 이 메뉴 먹을래 😋
+                    </button>
+                    <button onclick="reTryGrab()" class="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold text-xs rounded-xl transition">
+                        다시 뽑을래 🔄
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- MENU MANAGER MODAL -->
+        <div id="menuModal" class="absolute inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+            <div class="bg-white rounded-3xl w-full h-[85%] max-h-[600px] p-4 flex flex-col shadow-2xl border-2 border-purple-100 relative overflow-hidden">
+                
+                <!-- Modal Header -->
+                <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 rounded-full bg-purple-100 text-purple-600 flex items-center justify-center text-sm font-bold">
+                            <i class="fas fa-utensils"></i>
+                        </div>
+                        <h3 class="font-bold text-slate-800 text-base">카페 메뉴 커스텀</h3>
+                    </div>
+                    <button onclick="closeMenuModal()" class="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition">
+                        <i class="fas fa-times text-sm"></i>
+                    </button>
+                </div>
+
+                <!-- Add New Menu Input Form -->
+                <div class="my-3 p-3 bg-purple-50/60 rounded-2xl border border-purple-100 space-y-2">
+                    <div class="text-xs font-bold text-purple-700 flex items-center space-x-1">
+                        <i class="fas fa-plus"></i>
+                        <span>새 메뉴 추가하기</span>
+                    </div>
+                    <div class="flex space-x-1.5">
+                        <!-- Emoji Picker dropdown helper -->
+                        <select id="newMenuEmoji" class="bg-white border border-slate-200 text-xl rounded-xl px-2 focus:outline-none focus:border-pink-400">
+                            <option value="☕">☕ 커피</option>
+                            <option value="🧋">🧋 버블티</option>
+                            <option value="🍵">🍵 티/말차</option>
+                            <option value="🥤">🥤 에이드</option>
+                            <option value="🥐">🥐 베이커리</option>
+                            <option value="🍰">🍰 케이크</option>
+                            <option value="🍨">🍨 아이스크림</option>
+                            <option value="🧃">🧃 주스</option>
+                        </select>
+                        <input type="text" id="newMenuName" placeholder="메뉴 이름 (예: 바닐라 라떼)" class="flex-1 bg-white border border-slate-200 rounded-xl px-3 text-xs focus:outline-none focus:border-pink-400 font-medium">
+                    </div>
+                    <input type="text" id="newMenuComment" placeholder="나만의 짧은 코멘트 (선택 사항)" class="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:border-pink-400">
+                    <button onclick="addNewMenu()" class="w-full py-2 bg-purple-500 hover:bg-purple-600 text-white font-bold text-xs rounded-xl shadow transition">
+                        목록에 메뉴 추가하기
+                    </button>
+                </div>
+
+                <!-- Scrollable Menu Items List -->
+                <div class="flex-1 overflow-y-auto custom-scroll pr-1 my-1 space-y-2" id="menuListContainer">
+                    <!-- Dynamic rendering via JS -->
+                </div>
+
+                <!-- Footer reset button -->
+                <div class="pt-2 border-t border-slate-100 flex items-center justify-between">
+                    <button onclick="resetDefaultMenu()" class="text-xs text-slate-400 hover:text-pink-500 underline flex items-center space-x-1">
+                        <i class="fas fa-undo"></i>
+                        <span>기본 메뉴로 초기화</span>
+                    </button>
+                    <span id="totalMenuCountText" class="text-xs font-semibold text-purple-600">총 0개 메뉴</span>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Default Cafe Menu Data
+        const DEFAULT_MENUS = [
+            { id: 1, name: "아이스 아메리카노", emoji: "☕", comment: "오늘 하루 가볍게 시작하고 싶을 땐 필수 카페인 템!" },
+            { id: 2, name: "딸기 라떼", emoji: "🧋", comment: "상콤달콤 당 충전 200%! 오늘 주인공은 바로 나!" },
+            { id: 3, name: "바닐라 빈 라떼", emoji: "☕", comment: "은은한 달콤함으로 지친 마음을 사르르 녹여줘요." },
+            { id: 4, name: "청포도 에이드", emoji: "🥤", comment: "톡 쏘는 탄산과 톡톡 터지는 알갱이, 청량감 폭발!" },
+            { id: 5, name: "말차 라떼", emoji: "🍵", comment: "씁쓸함과 고소함의 환상적 콜라보! 뇌세포 깨우는 맛." },
+            { id: 6, name: "초코 프라페", emoji: "🍫", comment: "오늘 스트레스 대폭발한 사람 손! 칼로리는 무시합시다." },
+            { id: 7, name: "자몽 허니 블랙티", emoji: "🍹", comment: "달콤 쌉쌀 고급스러운 맛! 믿고 먹는 실패 없는 조합." },
+            { id: 8, name: "갓 구운 소금빵", emoji: "🥐", comment: "겉바속촉 버터 풍미 한 가득! 아메리카노 최고의 짝꿍." },
+            { id: 9, name: "딸기 생크림 케이크", emoji: "🍰", comment: "수고한 나에게 주는 확실한 행복 한 조각 🎁" },
+            { id: 10, name: "디카페인 콜드브루", emoji: "🧊", comment: "밤에도 부담 없이 깔끔하고 시원하게 즐겨요!" }
+        ];
+
+        // Backup witty comments bank for custom items or dynamic variation
+        const RANDOM_COMMENTS = [
+            "오늘의 기분을 100% 만족시켜줄 신의 한 수 메뉴!",
+            "고민 끝! 맛있는 행복이 손안에 기다리고 있어요 ☕✨",
+            "한 입 머금으면 미소가 절로 피어나는 마법의 조합!",
+            "지친 일상에 오아시스 같은 단비가 되어줄 특급 추천!",
+            "오늘 오후 승자는 바로 이 메뉴를 고른 당신입니다 🎉",
+            "사장님도 몰래 숨겨두고 먹는다는 은밀한 인생 메뉴!",
+            "피로 회복 지수 +50, 기분 전환 지수 +100 상승 📈"
+        ];
+
+        // App State
+        let menus = [...DEFAULT_MENUS];
+        let isSoundOn = true;
+        let isGrabbing = false;
+        let selectedMenu = null;
+
+        // Sound Effects via Web Audio API
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        function playSound(type) {
+            if (!isSoundOn) return;
+            try {
+                const ctx = getAudioContext();
+                const now = ctx.currentTime;
+
+                if (type === 'start') {
+                    // Arcade Motor Start Sound
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(150, now);
+                    osc.frequency.exponentialRampToValueAtTime(300, now + 0.3);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.3);
+                } else if (type === 'grab') {
+                    // Mechanical Claw Catch Sound
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(400, now);
+                    osc.frequency.exponentialRampToValueAtTime(120, now + 0.2);
+                    gain.gain.setValueAtTime(0.25, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.2);
+                } else if (type === 'drop') {
+                    // Item Drop Sound
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    osc.frequency.exponentialRampToValueAtTime(200, now + 0.25);
+                    gain.gain.setValueAtTime(0.3, now);
+                    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(now);
+                    osc.stop(now + 0.25);
+                } else if (type === 'win') {
+                    // Fanfare Chime
+                    [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                        const osc = ctx.createOscillator();
+                        const gain = ctx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                        gain.gain.setValueAtTime(0.2, now + idx * 0.08);
+                        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.3);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+                        osc.start(now + idx * 0.08);
+                        osc.stop(now + idx * 0.08 + 0.3);
+                    });
+                }
+            } catch (e) {
+                console.log("Audio play error:", e);
+            }
+        }
+
+        function toggleSound() {
+            isSoundOn = !isSoundOn;
+            const soundIcon = document.getElementById('soundIcon');
+            const soundBtn = document.getElementById('soundToggleBtn');
+            if (isSoundOn) {
+                soundIcon.className = 'fas fa-volume-up text-sm';
+                soundBtn.className = 'w-8 h-8 rounded-full bg-pink-50 hover:bg-pink-100 text-pink-500 flex items-center justify-center transition active:scale-95';
+            } else {
+                soundIcon.className = 'fas fa-volume-mute text-sm';
+                soundBtn.className = 'w-8 h-8 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center transition active:scale-95';
+            }
+        }
+
+        const canvas = document.getElementById('clawCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Pastel palette for capsules
+        const CAPSULE_COLORS = [
+            { top: '#FFB7C5', bottom: '#FFF0F5' }, // Pink
+            { top: '#D8B4F8', bottom: '#F3E8FF' }, // Purple
+            { top: '#BFFCC6', bottom: '#E8FEEA' }, // Mint
+            { top: '#FFF1AC', bottom: '#FFFDF0' }, // Yellow
+            { top: '#C4E0E5', bottom: '#EBF4F5' }, // Blue
+        ];
+
+        // Machine Simulation Variables
+        let width = 0;
+        let height = 0;
+
+        // Claw Position & State
+        let claw = {
+            x: 0,
+            y: 50,
+            targetX: 0,
+            targetY: 50,
+            state: 'IDLE', // IDLE, SWINGING, LOWERING, GRABBING, LIFTING, RETURNING, DROPPING
+            speed: 2.5,
+            openAngle: 0.5, // 0 closed, 0.8 open
+            targetOpenAngle: 0.5,
+            cableLength: 40,
+            heldCapsule: null
+        };
+
+        // Capsule Physics Objects
+        let capsules = [];
+
+        function resizeCanvas() {
+            const container = canvas.parentElement;
+            width = container.clientWidth;
+            height = container.clientHeight;
+            canvas.width = width;
+            canvas.height = height;
+            
+            if (claw.x === 0) claw.x = width / 2;
+            initCapsules();
+        }
+
+        function initCapsules() {
+            capsules = [];
+            if (!menus || menus.length === 0) return;
+
+            // 한번 뽑을 때마다 메뉴들과 색상을 랜덤하게 섞어 배치
+            const shuffledMenus = [...menus].sort(() => Math.random() - 0.5);
+            const count = Math.max(shuffledMenus.length, 10);
+            const radius = Math.min(width, height) * 0.075;
+            
+            const startY = height - radius * 2.2;
+            for (let i = 0; i < count; i++) {
+                const menuItem = shuffledMenus[i % shuffledMenus.length];
+                const colorScheme = CAPSULE_COLORS[Math.floor(Math.random() * CAPSULE_COLORS.length)];
+                
+                // 격자 기반에 랜덤 위치 노이즈(Jitter)를 추가하여 자연스럽게 흩뜨림
+                const col = i % 4;
+                const row = Math.floor(i / 4);
+                const xJitter = (Math.random() - 0.5) * (width * 0.18);
+                const yJitter = (Math.random() - 0.5) * 16;
+                
+                capsules.push({
+                    x: Math.max(radius + 10, Math.min(width - radius - 10, (width * 0.2) + (col * (width * 0.2)) + xJitter)),
+                    y: startY - (row * radius * 1.3) + yJitter,
+                    radius: radius,
+                    color: colorScheme,
+                    menu: menuItem,
+                    angle: (Math.random() - 0.5) * 0.6
+                });
+            }
+
+            // 캡슐의 겹침 레이어 순서도 랜덤하게 섞기
+            capsules.sort(() => Math.random() - 0.5);
+        }
+
+        let idleTime = 0;
+
+        function drawClawMachine() {
+            ctx.clearRect(0, 0, width, height);
+
+            // 1. Draw Glass Cabinet Background Grid & Glass Reflection
+            ctx.fillStyle = '#FFFFFF';
+            ctx.globalAlpha = 0.2;
+            ctx.fillRect(10, 10, width - 20, height - 20);
+            ctx.globalAlpha = 1.0;
+
+            // Draw Top Rail
+            ctx.fillStyle = '#CBD5E1';
+            ctx.fillRect(20, 20, width - 40, 12);
+            ctx.fillStyle = '#94A3B8';
+            ctx.fillRect(claw.x - 25, 18, 50, 16); // Motor Carriage
+
+            // Update Claw Idle Oscillation
+            idleTime += 0.03;
+            if (claw.state === 'IDLE') {
+                claw.x = (width / 2) + Math.sin(idleTime) * (width * 0.3);
+                claw.targetOpenAngle = 0.6;
+            }
+
+            // Smooth Claw Angle adjustment
+            claw.openAngle += (claw.targetOpenAngle - claw.openAngle) * 0.1;
+
+            // 2. Draw Claw Cable
+            ctx.strokeStyle = '#64748B';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(claw.x, 26);
+            ctx.lineTo(claw.x, claw.y);
+            ctx.stroke();
+
+            // 3. Draw Claw Base Hub
+            ctx.fillStyle = '#EC4899'; // Pastel pink accent
+            ctx.beginPath();
+            ctx.arc(claw.x, claw.y, 14, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#DB2777';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Draw Claw Prongs
+            ctx.save();
+            ctx.translate(claw.x, claw.y);
+
+            // Left Prong
+            ctx.save();
+            ctx.rotate(-claw.openAngle);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(-12, 22);
+            ctx.lineTo(-6, 38);
+            ctx.stroke();
+            ctx.restore();
+
+            // Right Prong
+            ctx.save();
+            ctx.rotate(claw.openAngle);
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 5;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(12, 22);
+            ctx.lineTo(6, 38);
+            ctx.stroke();
+            ctx.restore();
+
+            ctx.restore();
+
+            // 4. Draw Capsules in Machine
+            capsules.forEach(cap => {
+                ctx.save();
+                ctx.translate(cap.x, cap.y);
+                ctx.rotate(cap.angle);
+
+                // Capsule Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.06)';
+                ctx.beginPath();
+                ctx.ellipse(0, cap.radius * 0.8, cap.radius, cap.radius * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Top Half (Colored)
+                ctx.fillStyle = cap.color.top;
+                ctx.beginPath();
+                ctx.arc(0, 0, cap.radius, Math.PI, 0, false);
+                ctx.closePath();
+                ctx.fill();
+
+                // Bottom Half (White/Pastel Light)
+                ctx.fillStyle = cap.color.bottom;
+                ctx.beginPath();
+                ctx.arc(0, 0, cap.radius, 0, Math.PI, false);
+                ctx.closePath();
+                ctx.fill();
+
+                // Center Ring Seam
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(-cap.radius, -2, cap.radius * 2, 4);
+                ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(-cap.radius, -2, cap.radius * 2, 4);
+
+                // Shiny Reflection
+                ctx.fillStyle = 'rgba(255,255,255,0.4)';
+                ctx.beginPath();
+                ctx.arc(-cap.radius * 0.3, -cap.radius * 0.4, cap.radius * 0.3, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Emoji Label inside capsule
+                ctx.font = `${cap.radius * 0.9}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(cap.menu.emoji || "☕", 0, 2);
+
+                ctx.restore();
+            });
+
+            // 5. Update State Machine for Grabbing Logic
+            updateClawState();
+
+            requestAnimationFrame(drawClawMachine);
+        }
+
+        function updateClawState() {
+            if (claw.state === 'LOWERING') {
+                claw.y += 4;
+                // Check if reached capsule level
+                const targetY = height - 120;
+                if (claw.y >= targetY) {
+                    claw.state = 'GRABBING';
+                    playSound('grab');
+                    
+                    // Pick nearest capsule
+                    let closest = null;
+                    let minDist = 9999;
+                    capsules.forEach(cap => {
+                        const dist = Math.hypot(cap.x - claw.x, cap.y - claw.y);
+                        if (dist < minDist) {
+                            minDist = dist;
+                            closest = cap;
+                        }
+                    });
+
+                    // Hold capsule if close enough
+                    if (closest && minDist < 70) {
+                        claw.heldCapsule = closest;
+                        selectedMenu = closest.menu;
+                    } else {
+                        // Fallback pick random menu if none right below
+                        selectedMenu = menus[Math.floor(Math.random() * menus.length)];
+                    }
+
+                    setTimeout(() => {
+                        claw.targetOpenAngle = 0.15; // Close claws tight
+                        claw.state = 'LIFTING';
+                    }, 400);
+                }
+            } else if (claw.state === 'LIFTING') {
+                claw.y -= 3;
+                if (claw.heldCapsule) {
+                    claw.heldCapsule.x = claw.x;
+                    claw.heldCapsule.y = claw.y + 30;
+                }
+                if (claw.y <= 50) {
+                    claw.y = 50;
+                    claw.state = 'RETURNING';
+                }
+            } else if (claw.state === 'RETURNING') {
+                // Move claw to delivery chute (left side)
+                const chuteX = 45;
+                if (claw.x > chuteX) {
+                    claw.x -= 3;
+                    if (claw.heldCapsule) {
+                        claw.heldCapsule.x = claw.x;
+                        claw.heldCapsule.y = claw.y + 30;
+                    }
+                } else {
+                    claw.state = 'DROPPING';
+                    claw.targetOpenAngle = 0.7; // Open claw
+                    playSound('drop');
+                    
+                    if (claw.heldCapsule) {
+                        // Animate capsule dropping down exit
+                        const droppingCap = claw.heldCapsule;
+                        claw.heldCapsule = null;
+                        
+                        let dropY = droppingCap.y;
+                        const dropInterval = setInterval(() => {
+                            dropY += 8;
+                            droppingCap.y = dropY;
+                            if (dropY >= height - 30) {
+                                clearInterval(dropInterval);
+                                showResultModal();
+                            }
+                        }, 20);
+                    } else {
+                        // No capsule caught? Still display result fallback
+                        setTimeout(() => showResultModal(), 500);
+                    }
+                }
+            }
+        }
+
+        function startGrabbing() {
+            if (isGrabbing) return;
+            
+            if (menus.length === 0) {
+                alert("등록된 메뉴가 없습니다! 메뉴를 추가해주세요.");
+                openMenuModal();
+                return;
+            }
+
+            // 뽑기 버튼을 누를 때마다 캡슐 메뉴 위치를 새로 랜덤 재배치!
+            initCapsules();
+
+            isGrabbing = true;
+            document.getElementById('grabBtn').disabled = true;
+            document.getElementById('grabBtnText').innerText = "집게 작동 중...!";
+            document.getElementById('bannerText').innerText = "과연 어떤 메뉴가 뽑힐까요?";
+
+            playSound('start');
+            
+            // Lock claw position at current location and lower
+            claw.state = 'LOWERING';
+            claw.targetOpenAngle = 0.7;
+        }
+
+        function reTryGrab() {
+            closeResultModal();
+            setTimeout(() => {
+                startGrabbing();
+            }, 300);
+        }
+
+        function quickPickRandom() {
+            if (menus.length === 0) return;
+            selectedMenu = menus[Math.floor(Math.random() * menus.length)];
+            playSound('win');
+            showResultModal();
+        }
+
+        function showResultModal() {
+            playSound('win');
+
+            const item = selectedMenu || menus[0];
+            document.getElementById('resultMenuTitle').innerText = item.name;
+            document.getElementById('resultEmoji').innerText = item.emoji || "☕";
+            
+            // Comment selection
+            const comment = item.comment || RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)];
+            document.getElementById('resultComment').innerText = `"${comment}"`;
+
+            document.getElementById('resultModal').classList.remove('hidden');
+
+            // Trigger Pastel Confetti burst
+            if (window.confetti) {
+                confetti({
+                    particleCount: 60,
+                    spread: 60,
+                    origin: { y: 0.6 },
+                    colors: ['#FFB7C5', '#D8B4F8', '#BFFCC6', '#FFF1AC']
+                });
+            }
+
+            // Reset claw state
+            isGrabbing = false;
+            claw.state = 'IDLE';
+            claw.y = 50;
+            document.getElementById('grabBtn').disabled = false;
+            document.getElementById('grabBtnText').innerText = "메뉴 뽑기 시작!";
+            document.getElementById('bannerText').innerText = "오늘 뭐 마시지? 집게 버튼을 눌러보세요!";
+            initCapsules();
+        }
+
+        function closeResultModal() {
+            document.getElementById('resultModal').classList.add('hidden');
+        }
+
+        async function requestAiComment() {
+            const aiBtn = document.getElementById('aiBtn');
+            const commentElem = document.getElementById('resultComment');
+            
+            aiBtn.disabled = true;
+            aiBtn.innerHTML = `<i class="fas fa-spinner fa-spin text-purple-500"></i><span>AI 센스있는 소통 작성중...</span>`;
+
+            const menuName = selectedMenu ? selectedMenu.name : "카페 메뉴";
+            const systemPrompt = "너는 친근하고 위트 넘치는 10대~20대 감성의 카페 바리스타야. 사용자가 선택한 카페 메뉴에 대해 유쾌하고 기분 좋아지는 재미있는 한 줄 코멘트(30자 이내)를 작성해줘.";
+            const userQuery = `'${menuName}' 메뉴에 딱 어울리는 재치있고 웃긴 한 줄 평 만들어줘!`;
+
+            try {
+                const apiKey = ""; // Canvas runtime automatically supplies API key when empty
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: userQuery }] }],
+                        systemInstruction: { parts: [{ text: systemPrompt }] }
+                    })
+                });
+
+                const data = await response.json();
+                const aiText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (aiText) {
+                    commentElem.innerText = `"${aiText.trim()}"`;
+                } else {
+                    commentElem.innerText = `"오늘도 내일도 맛있게! 이 메뉴는 진리입니다 ✨"`;
+                }
+            } catch (err) {
+                console.error("AI comment fetch error:", err);
+                commentElem.innerText = `"탁월한 선택! 이 한 잔으로 오늘 하루 에너지가 풀충전됩니다 ⚡"`;
+            } finally {
+                aiBtn.disabled = false;
+                aiBtn.innerHTML = `<i class="fas fa-magic text-purple-500"></i><span>AI 한 줄평 새로 요청하기</span>`;
+            }
+        }
+
+        function openMenuModal() {
+            renderMenuList();
+            document.getElementById('menuModal').classList.remove('hidden');
+        }
+
+        function closeMenuModal() {
+            document.getElementById('menuModal').classList.add('hidden');
+            initCapsules(); // Refresh capsules in claw machine
+        }
+
+        function renderMenuList() {
+            const container = document.getElementById('menuListContainer');
+            container.innerHTML = '';
+
+            menus.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between p-2.5 bg-slate-50 hover:bg-purple-50/50 rounded-xl border border-slate-100 transition';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2.5 overflow-hidden pr-2">
+                        <span class="text-xl shrink-0">${item.emoji || '☕'}</span>
+                        <div class="truncate">
+                            <div class="font-bold text-xs text-slate-800 truncate">${item.name}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${item.comment || '기본 코멘트 적용'}</div>
+                        </div>
+                    </div>
+                    <button onclick="deleteMenu(${item.id})" class="w-7 h-7 rounded-lg text-rose-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition shrink-0">
+                        <i class="fas fa-trash-alt text-xs"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+
+            document.getElementById('menuBadgeCount').innerText = menus.length;
+            document.getElementById('totalMenuCountText').innerText = `총 ${menus.length}개 메뉴`;
+        }
+
+        function addNewMenu() {
+            const nameInput = document.getElementById('newMenuName');
+            const commentInput = document.getElementById('newMenuComment');
+            const emojiSelect = document.getElementById('newMenuEmoji');
+
+            const name = nameInput.value.trim();
+            if (!name) {
+                alert("메뉴 이름을 입력해 주세요!");
+                return;
+            }
+
+            const newId = Date.now();
+            const newMenu = {
+                id: newId,
+                name: name,
+                emoji: emojiSelect.value,
+                comment: commentInput.value.trim() || RANDOM_COMMENTS[Math.floor(Math.random() * RANDOM_COMMENTS.length)]
+            };
+
+            menus.unshift(newMenu);
+            nameInput.value = '';
+            commentInput.value = '';
+
+            renderMenuList();
+            initCapsules();
+        }
+
+        function deleteMenu(id) {
+            menus = menus.filter(m => m.id !== id);
+            renderMenuList();
+            initCapsules();
+        }
+
+        function resetDefaultMenu() {
+            if (confirm("기본 메뉴 목록으로 다시 복원하시겠습니까?")) {
+                menus = [...DEFAULT_MENUS];
+                renderMenuList();
+                initCapsules();
+            }
+        }
+
+        window.onload = function() {
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+            renderMenuList();
+            drawClawMachine();
+        };
+    </script>
+</body>
+</html>
